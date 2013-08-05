@@ -10,6 +10,7 @@
 package chinese_segmenter
 
 import (
+	"common/util"
 	"fmt"
 	"log"
 	"strings"
@@ -80,7 +81,7 @@ func fieldExtractor(line string) interface{} {
 
 // Method LoadCEDict loads the CC-CEDict from the given path.
 func LoadCEDict(path string, keyType int) (*CEDict, error) {
-	lineHandler := NewPrefixDispatcher([]PrefixHandler{
+	lineHandler := util.NewPrefixDispatcher([]util.PrefixHandler{
 		{"# ", nil},          //skip comments
 		{"#! ", nil},         //skip meta information
 		{"", fieldExtractor}, //default: extract fields
@@ -123,7 +124,7 @@ func LoadCEDict(path string, keyType int) (*CEDict, error) {
 		}
 		return true, nil
 	}
-	if err := ForEachLineInFile(path, lineProcessor); err != nil {
+	if err := util.ForEachLineInFile(path, lineProcessor); err != nil {
 		return nil, err
 	}
 	return &dict, nil

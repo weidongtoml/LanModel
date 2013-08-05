@@ -2,11 +2,12 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package chinese_segmenter
+package ngram_model
 
 import (
 	"bufio"
 	"code.google.com/p/mahonia"
+	"common/util"
 	"fmt"
 	"strings"
 )
@@ -72,7 +73,7 @@ func (g *NGramGenerator) ProcessFile(filename string) error {
 		}
 		return true, nil
 	}
-	return ForEachLineInFile(filename, lineProcessor)
+	return util.ForEachLineInFile(filename, lineProcessor)
 }
 
 // Method GenerateUnigramModel generates a unigram from the information collected
@@ -87,7 +88,7 @@ func (g *NGramGenerator) GenerateUnigramModel(filename string) error {
 		}
 		return nil
 	}
-	return WithNewOpenFileAsBufioWriter(filename, modelWriter)
+	return util.WithNewOpenFileAsBufioWriter(filename, modelWriter)
 }
 
 // Method GenerateBigramModel generates a bigram model from the inforamtion
@@ -105,5 +106,5 @@ func (g *NGramGenerator) GenerateBigramModel(filename string) error {
 		}
 		return nil
 	}
-	return WithNewOpenFileAsBufioWriter(filename, modelWriter)
+	return util.WithNewOpenFileAsBufioWriter(filename, modelWriter)
 }

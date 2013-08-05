@@ -6,6 +6,7 @@ package chinese_segmenter
 
 import (
 	"bufio"
+	"common/util"
 	"os"
 	"testing"
 )
@@ -60,7 +61,7 @@ func TestCEDict(t *testing.T) {
 		}
 		return nil
 	}
-	err := WithNewOpenFileAsBufioWriter(dictPath, lineWriter)
+	err := util.WithNewOpenFileAsBufioWriter(dictPath, lineWriter)
 	if err != nil {
 		t.Errorf("Failed to create test file %s", dictPath)
 		return

@@ -2,10 +2,11 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package chinese_segmenter
+package ngram_model
 
 import (
 	"code.google.com/p/mahonia"
+	"common/util"
 	"math"
 	"strings"
 )
@@ -75,7 +76,7 @@ func (s *SegCNCorpus) ResetIterator() {
 }
 
 func (s *SegCNCorpus) Load(path string) error {
-	return ForEachLineInFile(path, func(line string) (bool, error) {
+	return util.ForEachLineInFile(path, func(line string) (bool, error) {
 		line = strings.Trim(line, " \t\r\b\f")
 		if (*s).decoder != nil {
 			//TODO(weidoliang): Add conversion error check

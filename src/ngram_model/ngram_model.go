@@ -2,9 +2,13 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package chinese_segmenter
+// Package ngram_model provides implementation of the N-Gram language model
+// generation from text corpus, loading of the model for prediction and a set
+// of evaluation utility for the NGram language model.
+package ngram_model
 
 import (
+	"common/util"
 	"fmt"
 	"log"
 	"strconv"
@@ -35,7 +39,7 @@ func LoadNGramModel(unigram, bigram string) (*NGramModel, error) {
 
 func (m *NGramModel) loadUnigram(unigram string) error {
 	m.Unigram = make(map[string]float64)
-	return ForEachLineInFile(unigram, func(line string) (bool, error) {
+	return util.ForEachLineInFile(unigram, func(line string) (bool, error) {
 		isValidLine := true
 		err_msg := ""
 		defer func() {
@@ -71,7 +75,7 @@ func (m *NGramModel) loadUnigram(unigram string) error {
 
 func (m *NGramModel) loadBigram(bigram string) error {
 	m.Bigram = make(map[BiGramKey]float64)
-	return ForEachLineInFile(bigram, func(line string) (bool, error) {
+	return util.ForEachLineInFile(bigram, func(line string) (bool, error) {
 		isValidLine := true
 		defer func() {
 			if !isValidLine {

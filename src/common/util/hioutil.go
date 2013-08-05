@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package hioutil implements higher level of I/O operations.
-package chinese_segmenter
+// Package utils provides a set of common high level utility functions.
+package util
 
 import (
 	"bufio"
