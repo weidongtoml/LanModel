@@ -6,6 +6,7 @@ package chinese_segmenter
 
 import (
 	"bufio"
+	"code.google.com/p/mahonia"
 	"fmt"
 	"strings"
 )
@@ -27,20 +28,30 @@ type NGramGenerator struct {
 	uniGramCount int
 	biGram       map[BiGramKey]int
 	biGramCount  int
+	charset      string
 }
 
 // Function NEwNGramGenerator Creates a new Initialzied NGramGenerator.
-func NewNGramGenerator() *NGramGenerator {
+func NewNGramGenerator(charset string) *NGramGenerator {
 	var generator NGramGenerator
 	generator.uniGram = make(map[string]int)
 	generator.biGram = make(map[BiGramKey]int)
+	generator.charset = charset
 	return &generator
 }
 
 // Function ProcessFile process the given file and incorporate the information
 // into the NGramGenerator g for future N-Gram model generation.
 func (g *NGramGenerator) ProcessFile(filename string) error {
+	var decoder mahonia.Decoder
+	if g.charset != "" {
+		decoder = mahonia.NewDecoder(g.charset)
+	}
 	lineProcessor := func(line string) (bool, error) {
+		line = strings.Trim(line, " \t\n\f\b\r")
+		if decoder != nil {
+			line = decoder.ConvertString(line)
+		}
 		tokens := strings.Split(line, " ")
 		var prevToken string
 		for i, t := range tokens {
@@ -48,11 +59,14 @@ func (g *NGramGenerator) ProcessFile(filename string) error {
 			g.uniGram[t]++
 			g.uniGramCount++
 			//Bigram frequency
+			var key BiGramKey
 			if i == 0 {
-				g.biGram[BiGramKey{SentenceStartTag, t}]++
+				key = BiGramKey{SentenceStartTag, t}
 			} else {
-				g.biGram[BiGramKey{prevToken, t}]++
+				key = BiGramKey{prevToken, t}
 			}
+			fmt.Printf("%v\n", key)
+			g.biGram[key]++
 			g.biGramCount++
 			prevToken = t
 		}

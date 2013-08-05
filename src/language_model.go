@@ -7,6 +7,7 @@ package main
 import (
 	cn_seg "chinese_segmenter"
 	"flag"
+	"fmt"
 	"log"
 )
 
@@ -21,7 +22,7 @@ var (
 )
 
 func createNGramModel() {
-	generator := cn_seg.NewNGramGenerator()
+	generator := cn_seg.NewNGramGenerator("Big5")
 	err := generator.ProcessFile(*corpus)
 	if err != nil {
 		log.Printf("Failed to process corpus[%s]: %s", *corpus, err)
@@ -48,9 +49,22 @@ func evaluateNGramModel() {
 	if err != nil {
 		log.Printf("Failed to load NGram model: %s", err)
 	}
+	corpusSupplier := cn_seg.NewSegCNCorpus("Big5")
+	err = (&corpusSupplier).Load(*corpus)
+	if err != nil {
+		log.Printf("Failed to load Corpus [%s]: %s", *corpus, err)
+	} else {
+		predictor := cn_seg.NewSimpleUnigramPredictor(model)
+		perplexity := cn_seg.Perplexity(predictor, corpusSupplier)
+		fmt.Printf("Unigram Model Perplexity: %f\n", perplexity)
+		bigram_predictor := cn_seg.NewSimpleBigramPredictor(model)
+		bigram_perplexity := cn_seg.Perplexity(bigram_predictor, corpusSupplier)
+		fmt.Printf("Bigram Model Perplexity: %f\n", bigram_perplexity)
+	}
 }
 
 func main() {
+	flag.Parse()
 	switch *action {
 	case "create":
 		createNGramModel()
@@ -62,5 +76,4 @@ func main() {
 		log.Printf("Invalid action option: %s, expected [create|evaluate]", *action)
 		break
 	}
-
 }

@@ -37,21 +37,25 @@ func (m *NGramModel) loadUnigram(unigram string) error {
 	m.Unigram = make(map[string]float64)
 	return ForEachLineInFile(unigram, func(line string) (bool, error) {
 		isValidLine := true
+		err_msg := ""
 		defer func() {
 			if !isValidLine {
-				log.Printf("Invalid line in unigram model[%s]: %s",
-					unigram, line)
+				log.Printf("Invalid line in unigram model[%s]: %s, %s",
+					unigram, line, err_msg)
 			}
 		}()
 		if !strings.HasPrefix(line, "#") {
-			fields := strings.SplitN(line, " ", 1)
+			line = strings.Trim(line, " \t\n\r\f")
+			fields := strings.Split(line, " ")
 			if len(fields) != 2 {
+				err_msg = fmt.Sprintf("Expected number of fields to be 2 but got %d.", len(fields))
 				isValidLine = false
 				return true, nil
 			}
 			p, err := strconv.ParseFloat(fields[1], 64)
 			if err != nil {
 				isValidLine = false
+				err_msg = fmt.Sprintf("attempt to obtain probability from %s failed: %s", fields[1], err)
 				return true, nil
 			}
 			old, found := m.Unigram[fields[0]]
@@ -76,7 +80,8 @@ func (m *NGramModel) loadBigram(bigram string) error {
 			}
 		}()
 		if !strings.HasPrefix(line, "#") {
-			fields := strings.SplitN(line, " ", 1)
+			line = strings.Trim(line, " \t\f\r")
+			fields := strings.Split(line, " ")
 			if len(fields) != 3 {
 				isValidLine = false
 				return true, nil
@@ -112,7 +117,42 @@ func NewSimpleUnigramPredictor(m *NGramModel) *SimpleUnigramPredictor {
 func (p *SimpleUnigramPredictor) Probability(s []string) float64 {
 	prob := float64(1)
 	for _, w := range s {
-		prob *= p.model.Unigram[w]
+		cur_p, found := p.model.Unigram[w]
+		if found {
+			prob *= cur_p
+		} else {
+			log.Printf("Missing term: %s", w)
+		}
+	}
+	return prob
+}
+
+type SimpleBigramPredictor struct {
+	model *NGramModel
+}
+
+func NewSimpleBigramPredictor(m *NGramModel) *SimpleBigramPredictor {
+	if m.Bigram == nil {
+		panic(fmt.Sprintf("NewSimpleBigramPredictor(%v), Bigram is nil.", *m))
+	}
+	return &SimpleBigramPredictor{m}
+}
+
+func (p *SimpleBigramPredictor) Probability(s []string) float64 {
+	prob := float64(1)
+	for i, _ := range s {
+		var key BiGramKey
+		if i == 0 {
+			key = BiGramKey{SentenceStartTag, s[i]}
+		} else {
+			key = BiGramKey{s[i-1], s[i]}
+		}
+		cur_p, found := p.model.Bigram[key]
+		if !found {
+			log.Printf("Missing %v", key)
+		} else {
+			prob *= cur_p
+		}
 	}
 	return prob
 }
