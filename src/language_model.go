@@ -5,12 +5,12 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"ngram_model"
 )
 
+/*
 var (
 	action = flag.String("action", "evaluate", "evaluate: evaluate the given models;create: create ngram models.")
 	corpus = flag.String("corpus", "../data/training/hkcu/hkcu_corpus.txt",
@@ -20,7 +20,7 @@ var (
 	bigramModel = flag.String("bigram", "../data/model/bigram.dat",
 		"path to output the bigram model, use empty string to disable bigram.")
 )
-
+*/
 func createNGramModel() {
 	generator := ngram_model.NewNGramGenerator("Big5")
 	err := generator.ProcessFile(*corpus)
@@ -63,8 +63,7 @@ func evaluateNGramModel() {
 	}
 }
 
-func main() {
-	flag.Parse()
+func doLanguageModel() {
 	switch *action {
 	case "create":
 		createNGramModel()

@@ -4,7 +4,13 @@
 
 package util
 
-import "strings"
+import (
+	"code.google.com/p/mahonia"
+	"errors"
+	"fmt"
+	"strings"
+	"unicode/utf8"
+)
 
 // A PrefixHandler specifies the handler function associated with the given
 // prefix.
@@ -43,4 +49,29 @@ func (p *PrefixDispatcher) Process(s string) interface{} {
 		}
 	}
 	return ret
+}
+
+// Function Utf8StringToRuneArray converts the given utf8 string to an array of
+// rune.
+func Ut8StringToRuneArray(sentence string) ([]rune, error) {
+	var chars []rune
+	for s_iter := sentence; s_iter != ""; {
+		r, sz := utf8.DecodeRuneInString(s_iter)
+		if r == utf8.RuneError {
+			return nil, errors.New(fmt.Sprintf("Cannot decode utf8 substring: %s", s_iter))
+		}
+		chars = append(chars, r)
+		s_iter = s_iter[sz:]
+	}
+	return chars, nil
+}
+
+type Utf8Converter struct {
+	mahonia.Decoder
+}
+
+// Function NewUtf8Converter creates a Utf8 converter that can convert the
+// source_charset to Utf8.
+func NewUtf8Converter(source_charset string) *Utf8Converter {
+	return &Utf8Converter{mahonia.NewDecoder(source_charset)}
 }

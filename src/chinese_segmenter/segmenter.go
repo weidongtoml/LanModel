@@ -2,13 +2,24 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package chinese_segmenter provides facility for Chinese language sentence
+// segmentation.
+//
+// TODO(weidoliang)
+//	1. Based on the implementation of unigram model, extend it to support NGram
+//	2. Make use of the punctuation present in the sentence to divide it into
+//		mini-sentences before doing segmentation to speed up the process.
 package chinese_segmenter
 
 import (
+	"common/util"
+	"errors"
 	"fmt"
-	//	"math"
 	"ngram_model"
-	"unicode/utf8"
+)
+
+const (
+	LongestWordLen = 4
 )
 
 type Segmenter struct {
@@ -16,111 +27,87 @@ type Segmenter struct {
 	model *ngram_model.NGramModel
 }
 
+// Function NewSegmenter creates a new segmenter from the given dictionary and
+// language model.
 func NewSegmenter(dict *CEDict, model *ngram_model.NGramModel) *Segmenter {
 	return &Segmenter{dict, model}
 }
 
-// Method Segment split the given sentence into a list of terms.
-func (s *Segmenter) Segment(sentence string) []string {
-	// Generate all possible term-splits and return the split with the highest
-	// score.
+// Method Segment split the given sentence into a list of terms, assuming the
+// sentence given is in utf8 encoding.
+func (s *Segmenter) Segment(sentence string) ([]string, error) {
 	if sentence == "" {
-		return nil
+		return nil, errors.New("Empty sentence cannot be segmented.")
 	}
-	//return s.recursiveSegment(sentence, "")
-	return s.dpSegment(sentence)
-}
-
-func (s *Segmenter) recursiveSegment(sentence string, token string) []string {
-	rv, sz := utf8.DecodeRuneInString(sentence)
-	if rv == utf8.RuneError {
-		panic(fmt.Sprintf("Cannot decode utf8 string: %s", sentence))
+	// Convert to array of Chinese Characters.
+	chars, err := util.Ut8StringToRuneArray(sentence)
+	if err != nil {
+		return nil, err
 	}
-	r := string(rv)
-	rest := sentence[sz:]
-
-	fmt.Printf("%v, %v\n", r, rest)
-
-	var join_result, split_result []string
-	if rest == "" {
-		if token == "" {
-			split_result = append(join_result, r)
-			join_result = split_result
-		} else {
-			join_result = append(join_result, token+r)
-			split_result = append(split_result, token, r)
-		}
-
-	} else {
-		s_r_result := s.recursiveSegment(rest, r)
-		if token != "" {
-			split_result = append(split_result, token)
-		}
-		for _, r_s := range s_r_result {
-			split_result = append(split_result, r_s)
-		}
-
-		j_r_result := s.recursiveSegment(rest, token+r)
-		for _, j_s := range j_r_result {
-			join_result = append(join_result, j_s)
-		}
-	}
-	split_score := s.scoreSequence(split_result)
-	join_score := s.scoreSequence(join_result)
-	if split_score > join_score {
-		return split_result
-	} else {
-		return join_result
-	}
-
-}
-
-func (s *Segmenter) scoreSequence(segments []string) float64 {
-	prob := float64(1)
-	for _, seg := range segments {
-		prob *= s.model.Unigram[seg]
-	}
-	fmt.Printf("Score(%v) = %f\n", segments, prob)
-	return prob
-}
-
-func (s *Segmenter) dpSegment(sentence string) []string {
-	var chars []rune
-	for s_iter := sentence; s_iter != ""; {
-		r, sz := utf8.DecodeRuneInString(s_iter)
-		if r == utf8.RuneError {
-			//TODO(weidoliang): Change this to debug log
-			panic(fmt.Sprintf("Cannot decode utf8 string: %s", sentence))
-		}
-		chars = append(chars, r)
-		s_iter = s_iter[sz:]
-	}
+	// Use dynamic programming to find the best segmentation.
 	n := len(chars)
 	p := make([]float64, n+1) //best probability for substr i..n
 	q := make([]string, n)
 	skip := make([]int, n)
 	p[n] = 1.0
 	for i := n - 1; i >= 0; i-- {
+		skip[i] = 1
 		for j := i + 1; j <= n; j++ {
 			word := chars[i:j]
-			word_p := s.model.Unigram[string(word)]
+			word_c_count := len(word)
+			if word_c_count > LongestWordLen {
+				continue
+			}
+			word_str := string(word)
+			word_p := s.model.Unigram[word_str]
 			prev_p := p[j]
 			if word_p <= 0.0 {
 				continue
 			}
+
 			new_p := word_p * prev_p
 			if new_p > p[i] {
 				p[i] = new_p
-				q[i] = string(word)
-				skip[i] = len(word)
-
+				q[i] = word_str
+				skip[i] = word_c_count
 			}
 		}
 	}
+
+	// Retrieve the segmentation result.
+	segments := retrieveTerms(q, skip, 0, -1)
+	return segments, nil
+}
+
+func retrieveTerms(terms []string, skip []int, start_index, limit int) []string {
 	var segments []string
-	for i := 0; i < len(q); {
-		segments = append(segments, q[i])
+	cnt := 0
+	for i := start_index; i < len(terms) && (limit <= 0 || cnt < limit); {
+		segments = append(segments, terms[i])
 		i += skip[i]
+		cnt++
 	}
 	return segments
+}
+
+func (s *Segmenter) evalSegmentation(cur_term string, terms_follow []string, is_start bool) float64 {
+	p := float64(1)
+	if len(terms_follow) > 0 {
+		if is_start {
+			key := ngram_model.BiGramKey{ngram_model.SentenceStartTag, cur_term}
+			p = s.model.Bigram[key]
+			if p == 0.0 {
+				p = s.model.Unigram[cur_term]
+			}
+		} else {
+			key := ngram_model.BiGramKey{cur_term, terms_follow[0]}
+			p = s.model.Bigram[key]
+			if p == 0.0 {
+				p = s.model.Unigram[cur_term]
+			}
+		}
+	}
+	fmt.Printf("%s, %v, %v, %f\n", cur_term, terms_follow, is_start, p)
+	return p
+	//return s.model.Unigram[cur_term]
 }
