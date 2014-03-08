@@ -7,7 +7,8 @@ import (
 )
 
 var (
-	action = flag.String("action", "evaluate", "evaluate: evaluate the given segmenter;segment: do segmentation.")
+	module = flag.String("module", "segmenter", "segmenter: chinese setence segmenter; ngram: ngram model.")
+	action = flag.String("action", "segment", "evaluate: evaluate the given segmenter;segment: do segmentation.")
 	corpus = flag.String("corpus", "../data/training/hkcu/hkcu_corpus.txt",
 		"path to the segmented corpus file.")
 	corpusCharSet = flag.String("corpus_charset", "Big5", "Encoding type of the corpus.")
@@ -28,15 +29,11 @@ func printHelp() {
 
 func main() {
 	flag.Parse()
-	if len(os.Args) < 2 {
-		printHelp()
-		return
-	}
-	switch os.Args[1] {
+	switch *module {
 	case "ngram":
 		doLanguageModel()
 		break
-	case "segment":
+	case "segmenter":
 		doSegmenter()
 		break
 	default:

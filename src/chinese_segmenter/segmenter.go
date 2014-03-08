@@ -19,7 +19,8 @@ import (
 )
 
 const (
-	LongestWordLen = 4
+	LongestWordLen = 4 // The maximum length of the longest word possible,
+	// which is mainly used to speed up segmentation.
 )
 
 type Segmenter struct {
@@ -35,6 +36,32 @@ func NewSegmenter(dict *CEDict, model *ngram_model.NGramModel) *Segmenter {
 
 // Method Segment split the given sentence into a list of terms, assuming the
 // sentence given is in utf8 encoding.
+//
+// Implementation note:
+// Current implemetation uses unigram and maximum entropy model together with
+// dynamic programming to implement the segmentation.
+// Here, from the set of all possible segmentation of sentence S, denoted by
+// seg(S), we find the set G such that the joint probability is the maximum,
+// i.e. the maximum likelihood obtain under the unigram model is given by
+//
+//   M(S) = max_(G \member_of seg(S)) {Product_(1 <= k <= |G|){P(g_k} }
+//
+//        = max_(1 <= i <= |S|) {
+//               max_(G' \member_of seg(S[i+1..n]){
+//                       P(S[1..i]) * Product_(1 <= k <= |G'|){P(g'_k} }  }
+//
+//        = max_(1 <= i <= |S|) {
+//               P(S[1..i]) * max_(G' \member_of seg(S[i+1..n]){
+//                                     Product_(1 <= k <= |G'|){P(g'_k} } }
+//
+//        = max_(i <= i <= |S|) { P(S[1..i]) * M(S[i+1..n]) }
+//
+// From the above, we can implement the segmentation in the following way:
+// First, we segment S to two parts at j = argmax(S[1..n]),
+//   then we obtain the first word segment S[1..j], and remaining sentence
+//   S[j+1..n],
+// repeat the above process with S[j+1..n] as S to obtain the second, third,
+// and the rest to the word segments until sentence S is completely segmented.
 func (s *Segmenter) Segment(sentence string) ([]string, error) {
 	if sentence == "" {
 		return nil, errors.New("Empty sentence cannot be segmented.")
@@ -46,32 +73,46 @@ func (s *Segmenter) Segment(sentence string) ([]string, error) {
 	}
 	// Use dynamic programming to find the best segmentation.
 	n := len(chars)
-	p := make([]float64, n+1) //best probability for substr i..n
+
+	// p[i] is the  probability of the most likely sequence of words in
+	// substr[i..n], i.e. M(S[i+1..n])
+	p := make([]float64, n+1)
+
+	// q[i] is the first word in that sentence
 	q := make([]string, n)
+
 	skip := make([]int, n)
 	p[n] = 1.0
+	// Calculate M(S[i..n]), and the best binary segmentation point j.
 	for i := n - 1; i >= 0; i-- {
 		skip[i] = 1
+		// Calculate:
+		//   p[i] = max_(i+1 <= j <= n){ P(S[i..j]) * M(S[j+1..n]) } )
+		//   q[i] = S[i..j], where j results in the maximum value of p[i]
+		//   skip[i] = len(q[i])
 		for j := i + 1; j <= n; j++ {
 			word := chars[i:j]
-			word_c_count := len(word)
-			if word_c_count > LongestWordLen {
+			word_len := len(word)
+			if word_len > LongestWordLen {
+				// Longer than the maximum possible, skip it
 				continue
 			}
 			word_str := string(word)
-			word_p := s.model.Unigram[word_str]
-			prev_p := p[j]
+			word_p := s.model.Unigram[word_str] // P(S[i..j])
 			if word_p <= 0.0 {
-				continue
+				// Unknown word, assign a small probability
+				word_p = 0.000000000000001
 			}
+			new_p := word_p * p[j] // P(S[i..j]) * M(S[j+1..n])
+			//fmt.Printf("P(%s)*M(%s) = %f [%d]\n", word_str, string(chars[j:]), new_p, i)
 
-			new_p := word_p * prev_p
 			if new_p > p[i] {
 				p[i] = new_p
 				q[i] = word_str
-				skip[i] = word_c_count
+				skip[i] = word_len
 			}
 		}
+		//fmt.Printf("%v: %v %v %v\n", i, p[i], q[i], skip[i])
 	}
 
 	// Retrieve the segmentation result.

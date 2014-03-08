@@ -5,10 +5,12 @@
 package main
 
 import (
+	"bufio"
 	seg "chinese_segmenter"
 	"common/util"
 	"fmt"
 	"ngram_model"
+	"os"
 	"strings"
 )
 
@@ -26,7 +28,28 @@ func doSegmenter() {
 }
 
 func doSegment() {
-
+	model, err := ngram_model.LoadNGramModel(*unigramModel, *bigramModel)
+	if err != nil {
+		fmt.Printf("Failed to load model[%s,%s]: %s", *unigramModel, *bigramModel, err)
+		return
+	}
+	segmenter := seg.NewSegmenter(nil, model)
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		line, has_more, err := reader.ReadLine()
+		if err == nil {
+			clean_line := strings.Trim(string(line), " \t\n\r\f")
+			if len(line) > 0 {
+				result, ok := segmenter.Segment(clean_line)
+				if ok == nil {
+					fmt.Printf("%v\n", result)
+				}
+			}
+		}
+		if !has_more {
+			break
+		}
+	}
 }
 
 func evaluateSegmenter() {
